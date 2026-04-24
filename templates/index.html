@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusAI — {{ user.username }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <style>
+        :root {
+            --bg:#05070f;--card:#111427;
+            --border:rgba(99,120,255,0.15);
+            --accent1:#6378ff;--accent2:#a78bfa;--accent3:#38bdf8;
+            --green:#22c55e;--text:#e2e8f8;--muted:#6b7280;
+            --user-grad:linear-gradient(135deg,#6378ff,#a78bfa);
+            --sidebar-w:260px;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;display:flex;overflow:hidden;}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(99,120,255,0.10) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(167,139,250,0.08) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+        /* SIDEBAR */
+        .sidebar{width:var(--sidebar-w);background:rgba(12,15,30,0.97);border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;z-index:10;flex-shrink:0;transition:width 0.3s ease;}
+        .sidebar.collapsed{width:0;overflow:hidden;}
+        .sidebar-header{padding:16px 14px 12px;border-bottom:1px solid var(--border);}
+        .brand{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+        .logo-icon{width:32px;height:32px;background:var(--user-grad);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 16px rgba(99,120,255,0.4);flex-shrink:0;}
+        .brand-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .btn-new-chat{width:100%;padding:10px 14px;background:var(--user-grad);color:#fff;border:none;border-radius:11px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;transition:transform 0.15s,box-shadow 0.2s;box-shadow:0 4px 16px rgba(99,120,255,0.3);}
+        .btn-new-chat:hover{transform:translateY(-1px);}
+
+        .rag-section{padding:10px 14px;border-bottom:1px solid var(--border);}
+        .section-title{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--accent3);margin-bottom:8px;}
+        .kb-stats{font-size:11px;color:var(--muted);background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.15);border-radius:8px;padding:6px 10px;margin-bottom:8px;}
+        .kb-stats span{color:var(--accent3);font-weight:600;}
+        .doc-upload-label{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--card);border:1px dashed rgba(99,120,255,0.22);border-radius:9px;color:var(--muted);font-size:12px;cursor:pointer;transition:border-color 0.2s,color 0.2s;margin-bottom:6px;overflow:hidden;white-space:nowrap;}
+        .doc-upload-label:hover{border-color:var(--accent1);color:var(--text);}
+        input[type="file"]{display:none;}
+        .btn-index{width:100%;padding:8px;background:rgba(99,120,255,0.1);color:var(--accent1);border:1px solid rgba(99,120,255,0.2);border-radius:9px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+        .btn-index:hover{background:rgba(99,120,255,0.18);}
+        .btn-clear-kb{width:100%;padding:7px;background:rgba(248,113,113,0.07);color:#f87171;border:1px solid rgba(248,113,113,0.2);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;margin-top:5px;}
+
+        /* Lang selector */
+        .lang-section{padding:8px 14px;border-bottom:1px solid var(--border);}
+        .lang-select{width:100%;padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+        .lang-select option{background:#111427;}
+
+        .chat-list-label{padding:12px 14px 4px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+        .chat-list{flex:1;overflow-y:auto;padding:4px 8px;}
+        .chat-list::-webkit-scrollbar{width:3px;}
+        .chat-list::-webkit-scrollbar-thumb{background:rgba(99,120,255,0.2);border-radius:3px;}
+        .chat-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background 0.15s;}
+        .chat-item:hover{background:rgba(99,120,255,0.08);}
+        .chat-item.active{background:rgba(99,120,255,0.14);}
+        .chat-item-icon{font-size:13px;flex-shrink:0;opacity:0.7;}
+        .chat-item-text{flex:1;overflow:hidden;}
+        .chat-item-title{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .chat-item-preview{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+        .chat-item-del{opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:5px;flex-shrink:0;}
+        .chat-item:hover .chat-item-del{opacity:1;}
+        .chat-item-del:hover{color:#f87171;}
+        .no-chats{text-align:center;padding:24px 16px;color:var(--muted);font-size:12px;}
+
+        .user-bar{padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+        .user-avatar{width:32px;height:32px;border-radius:9px;background:var(--user-grad);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+        .user-info{flex:1;overflow:hidden;}
+        .user-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .user-role{font-size:10px;color:var(--muted);text-transform:capitalize;}
+        .user-actions{display:flex;gap:4px;}
+        .btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px;border-radius:6px;}
+        .btn-icon:hover{color:var(--text);}
+        .btn-icon.logout:hover{color:#f87171;}
+
+        /* MAIN */
+        .main{flex:1;display:flex;flex-direction:column;position:relative;z-index:1;min-width:0;}
+
+        /* TABS */
+        .tabs{display:flex;border-bottom:1px solid var(--border);background:rgba(12,15,30,0.88);backdrop-filter:blur(20px);}
+        .tab{padding:0 20px;height:52px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.2s,border-color 0.2s;}
+        .tab:hover{color:var(--text);}
+        .tab.active{color:var(--accent1);border-bottom-color:var(--accent1);}
+
+        .tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
+        .tab-panel.active{display:flex;}
+
+        /* HEADER */
+        .chat-header{padding:0 20px;height:52px;background:rgba(12,15,30,0.88);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;}
+        .header-left{display:flex;align-items:center;gap:10px;}
+        .btn-toggle{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:4px 6px;border-radius:7px;}
+        .btn-toggle:hover{background:rgba(99,120,255,0.1);color:var(--text);}
+        .chat-title-bar{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;}
+        .header-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+        .rag-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.2);color:var(--accent3);}
+        .btn-export{padding:6px 12px;background:rgba(99,120,255,0.1);color:var(--accent1);border:1px solid rgba(99,120,255,0.2);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;}
+        .btn-export:hover{background:rgba(99,120,255,0.18);}
+        .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+        .status-dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+        /* CHAT */
+        .chat-wrapper{flex:1;overflow:hidden;}
+        .chat-container{height:100%;overflow-y:auto;padding:24px 24px 12px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth;}
+        .chat-container::-webkit-scrollbar{width:3px;}
+        .chat-container::-webkit-scrollbar-thumb{background:rgba(99,120,255,0.25);border-radius:3px;}
+
+        .welcome{text-align:center;padding:40px 20px;animation:fadeUp 0.5s ease;}
+        .welcome-icon{font-size:48px;margin-bottom:14px;display:block;filter:drop-shadow(0 0 24px rgba(99,120,255,0.5));}
+        .welcome h2{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;}
+        .welcome p{color:var(--muted);font-size:13px;}
+        .welcome-features{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;}
+        .feat-chip{padding:6px 14px;background:rgba(99,120,255,0.08);border:1px solid rgba(99,120,255,0.2);border-radius:20px;font-size:12px;color:var(--accent1);}
+
+        .message{display:flex;flex-direction:column;max-width:78%;animation:fadeUp 0.3s ease;}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .message.user{align-self:flex-end;align-items:flex-end;}
+        .message.bot{align-self:flex-start;align-items:flex-start;}
+        .msg-header{display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:0 4px;}
+        .label{font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);}
+        .message.user .label{color:var(--accent2);}
+        .message.bot  .label{color:var(--accent3);}
+        .rag-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);color:var(--green);}
+        .copy-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:5px;opacity:0;}
+        .message:hover .copy-btn{opacity:1;}
+
+        .bubble{padding:12px 17px;border-radius:18px;font-size:14px;line-height:1.65;word-break:break-word;}
+        .message.user .bubble{background:var(--user-grad);color:#fff;border-bottom-right-radius:5px;box-shadow:0 4px 22px rgba(99,120,255,0.3);}
+        .message.bot  .bubble{background:var(--card);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:5px;box-shadow:0 4px 16px rgba(0,0,0,0.25);}
+
+        /* Markdown */
+        .bubble h1,.bubble h2,.bubble h3{font-family:'Syne',sans-serif;margin:10px 0 6px;color:#fff;}
+        .bubble h1{font-size:18px;}.bubble h2{font-size:16px;}.bubble h3{font-size:14px;}
+        .bubble p{margin-bottom:8px;}
+        .bubble ul,.bubble ol{padding-left:20px;margin-bottom:8px;}
+        .bubble li{margin-bottom:3px;}
+        .bubble strong{color:#c4b5fd;}
+        .bubble code{background:rgba(99,120,255,0.15);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px;}
+        .bubble pre{border-radius:10px;margin:8px 0;overflow:hidden;}
+        .bubble pre code{font-size:13px;padding:12px !important;}
+        .bubble table{width:100%;border-collapse:collapse;margin:8px 0;}
+        .bubble th{background:rgba(99,120,255,0.15);padding:6px 10px;text-align:left;font-size:12px;}
+        .bubble td{padding:6px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+
+        .ocr-text{font-size:11.5px;color:var(--muted);margin-top:7px;padding:8px 12px;background:rgba(99,120,255,0.05);border:1px solid var(--border);border-radius:10px;}
+
+        .typing .bubble{display:flex;gap:5px;align-items:center;padding:16px 20px;}
+        .typing .dot{width:7px;height:7px;border-radius:50%;background:var(--accent1);animation:bounce 1.3s infinite;}
+        .typing .dot:nth-child(2){animation-delay:0.2s;background:var(--accent2);}
+        .typing .dot:nth-child(3){animation-delay:0.4s;background:var(--accent3);}
+        @keyframes bounce{0%,100%{transform:translateY(0) scale(1);opacity:0.6}50%{transform:translateY(-6px) scale(1.15);opacity:1}}
+
+        /* BOTTOM */
+        .bottom{padding:10px 20px 16px;position:relative;}
+        .bottom::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent1),var(--accent2),transparent);opacity:0.35;}
+
+        .input-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+        input[type="text"]{flex:1;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+        input[type="text"]:focus{border-color:var(--accent1);box-shadow:0 0 0 3px rgba(99,120,255,0.12);}
+        input[type="text"]::placeholder{color:#3d4460;}
+
+        /* Voice button */
+        .btn-mic{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;}
+        .btn-mic:hover{border-color:var(--accent1);color:var(--accent1);}
+        .btn-mic.recording{background:rgba(248,113,113,0.15);border-color:#f87171;color:#f87171;animation:pulse-red 1s infinite;}
+        @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0.4)}50%{box-shadow:0 0 0 8px rgba(248,113,113,0)}}
+
+        .btn-send{padding:12px 20px;background:var(--user-grad);color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(99,120,255,0.35);white-space:nowrap;}
+        .btn-send:hover{transform:translateY(-1px);}
+        .btn-send:disabled{opacity:0.5;cursor:not-allowed;}
+
+        .upload-row{display:flex;gap:8px;align-items:center;}
+        .file-label{flex:1;padding:8px 12px;background:var(--card);border:1px dashed rgba(99,120,255,0.22);border-radius:11px;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:7px;overflow:hidden;white-space:nowrap;}
+        .file-label:hover{border-color:var(--accent1);color:var(--text);}
+        .btn-upload{padding:9px 16px;background:rgba(56,189,248,0.08);color:var(--accent3);border:1px solid rgba(56,189,248,0.22);border-radius:11px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+
+        /* Voice status */
+        .voice-status{text-align:center;font-size:12px;color:#f87171;padding:4px 0;display:none;}
+        .voice-status.show{display:block;}
+
+        /* IMAGE GEN TAB */
+        .img-panel{flex:1;overflow-y:auto;padding:28px;}
+        .img-panel h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;}
+        .img-panel p{color:var(--muted);font-size:13px;margin-bottom:20px;}
+        .img-input-area{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;}
+        .img-input-area label{display:block;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+        .img-prompt{width:100%;padding:12px 16px;background:rgba(99,120,255,0.06);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;resize:none;min-height:80px;transition:border-color 0.2s;}
+        .img-prompt:focus{border-color:var(--accent1);}
+        .img-prompt::placeholder{color:#3d4460;}
+        .btn-generate{width:100%;padding:13px;background:var(--user-grad);color:#fff;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;box-shadow:0 4px 20px rgba(99,120,255,0.35);}
+        .btn-generate:hover{transform:translateY(-1px);}
+        .btn-generate:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+        .quick-prompts{margin-bottom:16px;}
+        .quick-prompts label{display:block;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+        .prompt-chips{display:flex;flex-wrap:wrap;gap:8px;}
+        .chip{padding:6px 14px;background:rgba(99,120,255,0.08);border:1px solid rgba(99,120,255,0.2);border-radius:20px;font-size:12px;color:var(--accent1);cursor:pointer;transition:background 0.2s;}
+        .chip:hover{background:rgba(99,120,255,0.16);}
+        .img-loading{text-align:center;padding:32px;display:none;}
+        .img-loading.show{display:block;}
+        .spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent1);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .img-result{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center;display:none;}
+        .img-result.show{display:block;animation:fadeUp 0.4s ease;}
+        .img-result img{max-width:100%;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+        .img-actions{margin-top:14px;display:flex;gap:10px;justify-content:center;}
+        .btn-download{padding:10px 20px;background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.25);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;}
+
+        /* CODE TAB */
+        .code-panel{flex:1;overflow-y:auto;padding:28px;}
+        .code-panel h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;}
+        .code-panel p{color:var(--muted);font-size:13px;margin-bottom:20px;}
+        .code-input-area{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;}
+        .code-input-area label{display:block;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+        .code-lang-row{display:flex;gap:10px;margin-bottom:10px;}
+        .code-lang{padding:8px 12px;background:rgba(99,120,255,0.06);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:13px;outline:none;cursor:pointer;}
+        .code-prompt{width:100%;padding:12px 16px;background:rgba(99,120,255,0.06);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;resize:none;min-height:80px;}
+        .code-prompt:focus{border-color:var(--accent1);}
+        .code-prompt::placeholder{color:#3d4460;}
+        .btn-codegen{width:100%;padding:12px;background:var(--user-grad);color:#fff;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;box-shadow:0 4px 18px rgba(99,120,255,0.3);}
+        .btn-codegen:hover{transform:translateY(-1px);}
+        .btn-codegen:disabled{opacity:0.5;cursor:not-allowed;}
+        .code-quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+        .code-result{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;display:none;}
+        .code-result.show{display:block;animation:fadeUp 0.4s ease;}
+        .code-result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+        .code-result-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+        .btn-copy-code{padding:6px 14px;background:rgba(99,120,255,0.1);color:var(--accent1);border:1px solid rgba(99,120,255,0.2);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;}
+
+        .toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:500;background:var(--card);border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:slideIn 0.3s ease;max-width:320px;}
+        .toast.success{border-color:rgba(34,197,94,0.3);color:var(--green);}
+        .toast.error{border-color:rgba(248,113,113,0.3);color:#f87171;}
+        @keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="brand"><div class="logo-icon">✦</div><span class="brand-name">NexusAI</span></div>
+        <button class="btn-new-chat" onclick="newChat()">✦ New Chat</button>
+    </div>
+
+    <!-- Language selector -->
+    <div class="lang-section">
+        <div class="section-title">🌐 Language</div>
+        <select class="lang-select" id="langSelect" onchange="changeLang(this.value)">
+            <option value="english">🇺🇸 English</option>
+            <option value="urdu">🇵🇰 Urdu (اردو)</option>
+            <option value="roman_urdu">🇵🇰 Roman Urdu</option>
+            <option value="arabic">🇸🇦 Arabic</option>
+            <option value="hindi">🇮🇳 Hindi</option>
+        </select>
+    </div>
+
+    <div class="rag-section">
+        <div class="section-title">🧠 Knowledge Base</div>
+        <div class="kb-stats">Chunks: <span id="kbChunks">0</span> &nbsp;|&nbsp; Docs: <span id="kbDocs">0</span></div>
+        <label class="doc-upload-label" for="docInput" id="docLabel">📄 Upload PDF or TXT...</label>
+        <input type="file" id="docInput" accept=".pdf,.txt" onchange="document.getElementById('docLabel').innerHTML='📄 '+this.files[0].name"/>
+        <button class="btn-index" onclick="indexDocument()">⚡ Add to Knowledge Base</button>
+        {% if user.role == 'admin' %}<button class="btn-clear-kb" onclick="clearKB()">🗑 Clear KB</button>{% endif %}
+    </div>
+
+    <div class="chat-list-label">Recent Chats</div>
+    <div class="chat-list" id="chatList"><div class="no-chats">No chats yet.</div></div>
+
+    <div class="user-bar">
+        <div class="user-avatar">{{ user.username[0].upper() }}</div>
+        <div class="user-info">
+            <div class="user-name">{{ user.username }}</div>
+            <div class="user-role">{{ user.role }}{% if user.role=='admin' %} 👑{% endif %}</div>
+        </div>
+        <div class="user-actions">
+            {% if user.role=='admin' %}<button class="btn-icon" onclick="window.location.href='/admin'">📊</button>{% endif %}
+            <button class="btn-icon logout" onclick="window.location.href='/logout'">⏻</button>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+    <!-- TABS -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('chat',this)">💬 Chat</div>
+        <div class="tab" onclick="switchTab('code',this)">💻 Code Generator</div>
+        <div class="tab" onclick="switchTab('imggen',this)">🎨 Image Generation</div>
+    </div>
+
+    <!-- CHAT TAB -->
+    <div class="tab-panel active" id="tab-chat">
+        <div class="chat-header">
+            <div class="header-left">
+                <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="chat-title-bar" id="chatTitleBar">New Chat</div>
+            </div>
+            <div class="header-right">
+                <button class="btn-export" onclick="exportPDF()">📄 PDF</button>
+                <span class="rag-badge" id="ragBadge">RAG Ready</span>
+                <div class="status-pill"><div class="status-dot"></div> Online</div>
+            </div>
+        </div>
+        <div class="chat-wrapper">
+            <div class="chat-container" id="chat">
+                <div class="welcome" id="welcome">
+                    <span class="welcome-icon">✦</span>
+                    <h2>Hello, {{ user.username }}!</h2>
+                    <p>Ask anything — type, speak, or upload a document</p>
+                    <div class="welcome-features">
+                        <span class="feat-chip">🎤 Voice Input</span>
+                        <span class="feat-chip">📄 RAG Docs</span>
+                        <span class="feat-chip">🌐 Multi-lang</span>
+                        <span class="feat-chip">💻 Code Gen</span>
+                        <span class="feat-chip">🎨 Image Gen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="bottom">
+            <div class="voice-status" id="voiceStatus">🎤 Listening... speak now</div>
+
+            <!-- Image preview in chat -->
+            <div id="chatImgPreview" style="display:none;margin-bottom:8px;position:relative;display:inline-block;">
+                <img id="chatImgThumb" style="max-height:80px;border-radius:10px;border:1px solid var(--border);"/>
+                <button onclick="removeChatImage()" style="position:absolute;top:-6px;right:-6px;background:#f87171;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+
+            <div class="input-row">
+                <button class="btn-mic" id="micBtn" onclick="toggleVoice()" title="Voice Input">🎤</button>
+                <!-- 📎 Attach image in chat -->
+                <label class="btn-mic" for="chatImageInput" title="Attach Image" style="cursor:pointer;">📎</label>
+                <input type="file" id="chatImageInput" accept="image/*" style="display:none;" onchange="previewChatImage(this)"/>
+                <input type="text" id="userInput" placeholder="Ask me anything or attach an image..."
+                    onkeydown="if(event.key==='Enter'&&!isLoading) sendMessage()"/>
+                <button class="btn-send" id="sendBtn" onclick="sendMessage()">Send ↑</button>
+            </div>
+            <div class="upload-row">
+                <label class="file-label" for="imageInput" id="fileLabel"><span>📎</span> OCR: Extract text from image...</label>
+                <input type="file" id="imageInput" accept="image/*" onchange="document.getElementById('fileLabel').innerHTML='<span>🖼️</span> '+this.files[0].name"/>
+                <button class="btn-upload" onclick="uploadImage()">OCR ✦</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CODE GENERATOR TAB -->
+    <div class="tab-panel" id="tab-code">
+        <div class="code-panel">
+            <h2>💻 Code Generator</h2>
+            <p>Describe what you want — AI will write the code for you</p>
+
+            <div class="code-quick">
+                <div class="chip" onclick="setCodePrompt('A function to sort a list of numbers')">Sort function</div>
+                <div class="chip" onclick="setCodePrompt('A REST API endpoint using Flask')">Flask API</div>
+                <div class="chip" onclick="setCodePrompt('Connect to SQLite database and insert data')">SQLite DB</div>
+                <div class="chip" onclick="setCodePrompt('A login form with validation in HTML CSS JS')">Login Form</div>
+                <div class="chip" onclick="setCodePrompt('Read a CSV file and calculate average')">CSV Reader</div>
+                <div class="chip" onclick="setCodePrompt('Binary search algorithm with explanation')">Binary Search</div>
+            </div>
+
+            <div class="code-input-area">
+                <div class="code-lang-row">
+                    <select class="code-lang" id="codeLang">
+                        <option value="Python">🐍 Python</option>
+                        <option value="JavaScript">🟨 JavaScript</option>
+                        <option value="HTML/CSS">🌐 HTML/CSS</option>
+                        <option value="SQL">🗄️ SQL</option>
+                        <option value="C++">⚡ C++</option>
+                        <option value="Java">☕ Java</option>
+                    </select>
+                </div>
+                <label>Describe what you want</label>
+                <textarea class="code-prompt" id="codePrompt" placeholder="e.g. Write a Python function to find all prime numbers up to n using sieve of eratosthenes..."></textarea>
+                <button class="btn-codegen" id="codeBtn" onclick="generateCode()">⚡ Generate Code</button>
+            </div>
+
+            <div class="code-result" id="codeResult">
+                <div class="code-result-header">
+                    <div class="code-result-title" id="codeResultTitle">Generated Code</div>
+                    <button class="btn-copy-code" onclick="copyCode()">📋 Copy Code</button>
+                </div>
+                <div id="codeOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAGE GEN TAB -->
+    <div class="tab-panel" id="tab-imggen">
+        <div class="img-panel">
+            <h2>🎨 AI Image Generation</h2>
+            <p>Stability AI SDXL — Describe your image and AI will create it</p>
+            <div class="quick-prompts">
+                <label>Quick Prompts</label>
+                <div class="prompt-chips">
+                    <div class="chip" onclick="setPrompt('A futuristic city at night with neon lights')">🌃 Futuristic City</div>
+                    <div class="chip" onclick="setPrompt('A beautiful mountain landscape at sunset')">🏔️ Mountain Sunset</div>
+                    <div class="chip" onclick="setPrompt('A cute robot sitting in a garden')">🤖 Cute Robot</div>
+                    <div class="chip" onclick="setPrompt('Abstract digital art with vibrant colors')">🎨 Abstract Art</div>
+                    <div class="chip" onclick="setPrompt('A professional business office interior')">🏢 Office Interior</div>
+                    <div class="chip" onclick="setPrompt('A magical forest with glowing trees')">🌲 Magic Forest</div>
+                </div>
+            </div>
+            <div class="img-input-area">
+                <label>Describe your image</label>
+                <textarea class="img-prompt" id="imgPrompt" placeholder="e.g. A futuristic city skyline at night with flying cars and neon lights, cinematic, 4k..."></textarea>
+                <button class="btn-generate" id="genBtn" onclick="generateImage()">✨ Generate Image</button>
+            </div>
+            <div class="img-loading" id="imgLoading">
+                <div class="spinner"></div>
+                <p>Generating... please wait 15-30 seconds ⏳</p>
+            </div>
+            <div class="img-result" id="imgResult">
+                <img id="generatedImg" src="" alt="Generated"/>
+                <div class="img-actions">
+                    <a class="btn-download" id="downloadBtn" href="#" download="nexusai_image.png">⬇ Download</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    marked.setOptions({ breaks:true, gfm:true });
+
+    let currentChatId = null;
+    let isLoading     = false;
+    let currentLang   = 'english';
+    let recognition   = null;
+    let isRecording   = false;
+
+    const chatEl   = document.getElementById('chat');
+    const titleBar = document.getElementById('chatTitleBar');
+    const sendBtn  = document.getElementById('sendBtn');
+
+    loadChats(); loadStats();
+
+    // ── Tab switching ──
+    function switchTab(name, el){
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('tab-'+name).classList.add('active');
+    }
+
+    function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('collapsed'); }
+
+    // ── Language ──
+    function changeLang(lang){
+        currentLang = lang;
+        const placeholders = {
+            english:    'Ask me anything...',
+            urdu:       'کچھ بھی پوچھیں...',
+            roman_urdu: 'Kuch bhi puchein...',
+            arabic:     'اسألني أي شيء...',
+            hindi:      'कुछ भी पूछें...'
+        };
+        document.getElementById('userInput').placeholder = placeholders[lang] || 'Ask me anything...';
+        showToast('Language: ' + lang.replace('_',' '), 'success');
+    }
+
+    // ── Voice Input ──
+    function toggleVoice(){
+        if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+            showToast('Voice not supported in this browser. Use Chrome!', 'error'); return;
+        }
+
+        if(isRecording){ stopVoice(); return; }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+
+        const langMap = {
+            english: 'en-US', urdu: 'ur-PK',
+            roman_urdu: 'ur-PK', arabic: 'ar-SA', hindi: 'hi-IN'
+        };
+        recognition.lang = langMap[currentLang] || 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            isRecording = true;
+            document.getElementById('micBtn').classList.add('recording');
+            document.getElementById('micBtn').textContent = '⏹';
+            document.getElementById('voiceStatus').classList.add('show');
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('userInput').value = transcript;
+            stopVoice();
+            showToast('✅ Voice captured!', 'success');
+        };
+
+        recognition.onerror = () => {
+            stopVoice();
+            showToast('⚠️ Voice error — try again', 'error');
+        };
+
+        recognition.onend = () => stopVoice();
+        recognition.start();
+    }
+
+    function stopVoice(){
+        isRecording = false;
+        if(recognition) recognition.stop();
+        document.getElementById('micBtn').classList.remove('recording');
+        document.getElementById('micBtn').textContent = '🎤';
+        document.getElementById('voiceStatus').classList.remove('show');
+    }
+
+    // ── Chats ──
+    async function loadChats(){
+        try{ const r=await fetch('/chats'); renderChatList(await r.json()); }catch{}
+    }
+
+    function renderChatList(chats){
+        const cl=document.getElementById('chatList');
+        cl.innerHTML='';
+        if(!chats||chats.length===0){ cl.innerHTML='<div class="no-chats">No chats yet.</div>'; return; }
+        chats.forEach(c=>{
+            const item=document.createElement('div');
+            item.className='chat-item'+(c.id===currentChatId?' active':'');
+            item.dataset.id=c.id;
+            item.onclick=()=>openChat(c.id);
+            item.innerHTML=`<span class="chat-item-icon">💬</span>
+                <div class="chat-item-text">
+                    <div class="chat-item-title">${escHtml(c.title)}</div>
+                    <div class="chat-item-preview">${escHtml(c.preview||'Empty')}</div>
+                </div>
+                <button class="chat-item-del" onclick="delChat(${c.id},event)">✕</button>`;
+            cl.appendChild(item);
+        });
+    }
+
+    async function newChat(){
+        const r=await fetch('/chats',{method:'POST'});
+        const d=await r.json();
+        currentChatId=d.id;
+        titleBar.textContent='New Chat';
+        chatEl.innerHTML=`<div class="welcome" id="welcome"><span class="welcome-icon">✦</span><h2>New Conversation</h2><p>Ask me anything.</p></div>`;
+        loadChats(); highlightActive();
+    }
+
+    async function openChat(id){
+        currentChatId=id;
+        const r=await fetch(`/chats/${id}`);
+        const d=await r.json();
+        titleBar.textContent=d.title;
+        chatEl.innerHTML='';
+        if(!d.messages||d.messages.length===0){
+            chatEl.innerHTML=`<div class="welcome" id="welcome"><span class="welcome-icon">✦</span><h2>New Conversation</h2><p>Ask me anything.</p></div>`;
+        } else {
+            d.messages.forEach(m=>appendBubble(m.role,m.text,m.ocr||null,m.rag||false,false));
+        }
+        highlightActive(); scrollDown();
+    }
+
+    async function delChat(id,e){
+        e.stopPropagation();
+        await fetch(`/chats/${id}`,{method:'DELETE'});
+        if(currentChatId===id){
+            currentChatId=null;
+            chatEl.innerHTML=`<div class="welcome" id="welcome"><span class="welcome-icon">✦</span><h2>Hello!</h2><p>Start a new conversation.</p></div>`;
+            titleBar.textContent='New Chat';
+        }
+        loadChats();
+    }
+
+    function highlightActive(){
+        document.querySelectorAll('.chat-item').forEach(el=>el.classList.toggle('active',parseInt(el.dataset.id)===currentChatId));
+    }
+
+    async function loadStats(){
+        try{
+            const r=await fetch('/stats'); const d=await r.json();
+            document.getElementById('kbChunks').textContent=d.total_chunks;
+            document.getElementById('kbDocs').textContent=d.documents;
+            const badge=document.getElementById('ragBadge');
+            if(d.total_chunks>0){ badge.textContent=`RAG: ${d.total_chunks}`; badge.style.background='rgba(34,197,94,0.1)'; badge.style.borderColor='rgba(34,197,94,0.25)'; badge.style.color='#22c55e'; }
+        }catch{}
+    }
+
+    function appendBubble(role, text, ocrText=null, ragUsed=false, animate=true){
+        const welcome=document.getElementById('welcome');
+        if(welcome) welcome.remove();
+        const msg=document.createElement('div');
+        msg.className=`message ${role}`;
+        if(!animate) msg.style.animation='none';
+        const ragTag=(role==='bot'&&ragUsed)?'<span class="rag-tag">RAG</span>':'';
+        const content=role==='bot'?marked.parse(text):escHtml(text);
+        msg.innerHTML=`
+            <div class="msg-header">
+                <span class="label">${role==='user'?'You':'NexusAI'}</span>
+                ${ragTag}
+                <button class="copy-btn" onclick="copyText(this,this.dataset.t)" data-t="${escAttr(text)}">📋 Copy</button>
+            </div>
+            <div class="bubble">${content}</div>
+            ${ocrText?`<div class="ocr-text">📄 Extracted: ${escHtml(ocrText)}</div>`:''}`;
+
+        // Highlight code blocks
+        msg.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        chatEl.appendChild(msg); scrollDown();
+    }
+
+    function showTyping(){
+        const m=document.createElement('div');
+        m.className='message bot typing'; m.id='typing';
+        m.innerHTML=`<div class="msg-header"><span class="label">NexusAI</span></div><div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+        chatEl.appendChild(m); scrollDown();
+    }
+    function removeTyping(){ const t=document.getElementById('typing'); if(t) t.remove(); }
+    function scrollDown(){ chatEl.scrollTop=chatEl.scrollHeight; }
+
+    // ── Send Message (with language support) ──
+    async function sendMessage(){
+        if(isLoading) return;
+        const input=document.getElementById('userInput');
+        const text=input.value.trim();
+        if(!text) return;
+        if(!currentChatId) await newChat();
+
+        // Add language instruction
+        let question = text;
+        if(currentLang === 'urdu')       question = `${text}\n\n(Please respond in Urdu language - اردو میں جواب دیں)`;
+        if(currentLang === 'roman_urdu') question = `${text}\n\n(Please respond in Roman Urdu - Roman Urdu mein jawab dein)`;
+        if(currentLang === 'arabic')     question = `${text}\n\n(Please respond in Arabic - الرجاء الرد باللغة العربية)`;
+        if(currentLang === 'hindi')      question = `${text}\n\n(Please respond in Hindi - हिंदी में जवाब दें)`;
+
+        appendBubble('user', text);
+        input.value='';
+        isLoading=true; sendBtn.disabled=true;
+        showTyping();
+
+        try{
+            const res=await fetch('/ask_stream',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({message:question, chat_id:currentChatId})
+            });
+            const data=await res.json();
+            removeTyping();
+            appendBubble('bot', data.response||data.error||'⚠️', null, data.rag_used||false);
+            loadChats(); loadStats();
+        }catch(e){ removeTyping(); appendBubble('bot','⚠️ Error: '+e.message); }
+
+        isLoading=false; sendBtn.disabled=false;
+    }
+
+    // ── Chat Image (Vision) ──
+    let chatImageFile = null;
+
+    function previewChatImage(input){
+        if(!input.files[0]) return;
+        chatImageFile = input.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('chatImgThumb').src = e.target.result;
+            document.getElementById('chatImgPreview').style.display = 'inline-block';
+        };
+        reader.readAsDataURL(chatImageFile);
+    }
+
+    function removeChatImage(){
+        chatImageFile = null;
+        document.getElementById('chatImageInput').value = '';
+        document.getElementById('chatImgPreview').style.display = 'none';
+    }
+
+    // Override sendMessage to handle image
+    const _origSend = sendMessage;
+
+    async function sendMessage(){
+        if(isLoading) return;
+
+        // If image attached — use Vision
+        if(chatImageFile){
+            await sendImageToChat();
+            return;
+        }
+
+        const input = document.getElementById('userInput');
+        const text  = input.value.trim();
+        if(!text) return;
+        if(!currentChatId) await newChat();
+
+        let question = text;
+        if(currentLang === 'urdu')       question = `${text}\n\n(Please respond in Urdu language - اردو میں جواب دیں)`;
+        if(currentLang === 'roman_urdu') question = `${text}\n\n(Please respond in Roman Urdu)`;
+        if(currentLang === 'arabic')     question = `${text}\n\n(Please respond in Arabic)`;
+        if(currentLang === 'hindi')      question = `${text}\n\n(Please respond in Hindi)`;
+
+        appendBubble('user', text);
+        input.value='';
+        isLoading=true; sendBtn.disabled=true;
+        showTyping();
+
+        try{
+            const res=await fetch('/ask_stream',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({message:question, chat_id:currentChatId})
+            });
+            const data=await res.json();
+            removeTyping();
+            appendBubble('bot', data.response||data.error||'⚠️', null, data.rag_used||false);
+            loadChats(); loadStats();
+        }catch(e){ removeTyping(); appendBubble('bot','⚠️ Error: '+e.message); }
+
+        isLoading=false; sendBtn.disabled=false;
+    }
+
+    async function sendImageToChat(){
+        if(!chatImageFile) return;
+        if(!currentChatId) await newChat();
+
+        const question = document.getElementById('userInput').value.trim();
+        const userText = question ? `📷 Image: ${question}` : '📷 Analyze this image';
+
+        // Show image bubble
+        const welcome = document.getElementById('welcome');
+        if(welcome) welcome.remove();
+        const imgMsg = document.createElement('div');
+        imgMsg.className = 'message user';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imgMsg.innerHTML = `
+                <div class="msg-header"><span class="label">You</span></div>
+                <div class="bubble" style="padding:8px;">
+                    <img src="${e.target.result}" style="max-width:280px;max-height:200px;border-radius:10px;display:block;margin-bottom:6px;"/>
+                    ${question ? `<div style="font-size:13px;">${escHtml(question)}</div>` : ''}
+                </div>`;
+        };
+        reader.readAsDataURL(chatImageFile);
+        chatEl.appendChild(imgMsg);
+        scrollDown();
+
+        document.getElementById('userInput').value = '';
+        isLoading=true; sendBtn.disabled=true;
+        removeChatImage();
+        showTyping();
+
+        const fd = new FormData();
+        fd.append('image', chatImageFile);
+        fd.append('question', question);
+        fd.append('chat_id', currentChatId || '');
+
+        try{
+            const res  = await fetch('/chat_image', {method:'POST', body:fd});
+            const data = await res.json();
+            removeTyping();
+
+            // Show image in bot response too if needed
+            appendBubble('bot', data.response || '⚠️ Could not analyze image.');
+            loadChats();
+        }catch(e){
+            removeTyping();
+            appendBubble('bot','⚠️ Vision error: '+e.message);
+        }
+
+        isLoading=false; sendBtn.disabled=false;
+        chatImageFile = null;
+    }
+
+    // ── Upload Image (OCR) ──
+    async function uploadImage(){
+        const fi=document.getElementById('imageInput');
+        if(!fi.files[0]){ alert('Choose an image!'); return; }
+        if(!currentChatId) await newChat();
+        appendBubble('user','📷 Uploaded an image for analysis...');
+        showTyping();
+        const fd=new FormData(); fd.append('image',fi.files[0]);
+        try{
+            const r=await fetch('/upload',{method:'POST',body:fd});
+            const d=await r.json();
+            removeTyping(); appendBubble('bot',d.response||'⚠️',d.text); loadStats();
+        }catch{ removeTyping(); appendBubble('bot','⚠️ Error.'); }
+        fi.value=''; document.getElementById('fileLabel').innerHTML='<span>📎</span> Choose an image...';
+    }
+
+    // ── Document Index ──
+    async function indexDocument(){
+        const fi=document.getElementById('docInput');
+        if(!fi.files[0]){ showToast('Choose a file!','error'); return; }
+        showToast('⏳ Indexing...','success');
+        const fd=new FormData(); fd.append('document',fi.files[0]);
+        try{
+            const r=await fetch('/upload_doc',{method:'POST',body:fd});
+            const d=await r.json();
+            showToast(d.message||d.error,'success'); loadStats();
+        }catch{ showToast('⚠️ Failed','error'); }
+        fi.value=''; document.getElementById('docLabel').innerHTML='📄 Upload PDF or TXT...';
+    }
+
+    async function clearKB(){
+        if(!confirm('Clear knowledge base?')) return;
+        await fetch('/clear_index',{method:'POST'});
+        showToast('✅ Cleared!','success'); loadStats();
+    }
+
+    // ── CODE GENERATOR ──
+    function setCodePrompt(text){ document.getElementById('codePrompt').value=text; }
+
+    async function generateCode(){
+        const prompt = document.getElementById('codePrompt').value.trim();
+        const lang   = document.getElementById('codeLang').value;
+        if(!prompt){ showToast('Describe what you want!','error'); return; }
+
+        const codeBtn = document.getElementById('codeBtn');
+        codeBtn.disabled=true; codeBtn.textContent='⏳ Generating...';
+
+        const fullPrompt = `Write ${lang} code for the following. Provide complete, working code with comments explaining key parts:\n\n${prompt}\n\nProvide ONLY the code with brief comments. Make it clean and well-structured.`;
+
+        try{
+            const res=await fetch('/ask_stream',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({message:fullPrompt, chat_id:null})
+            });
+            const data=await res.json();
+            const result=document.getElementById('codeResult');
+            const output=document.getElementById('codeOutput');
+            document.getElementById('codeResultTitle').textContent=`${lang} Code`;
+            output.innerHTML=marked.parse(data.response||'⚠️ Error');
+            output.querySelectorAll('pre code').forEach(b=>hljs.highlightElement(b));
+            result.classList.add('show');
+            showToast('✅ Code generated!','success');
+        }catch(e){ showToast('⚠️ Error: '+e.message,'error'); }
+
+        codeBtn.disabled=false; codeBtn.textContent='⚡ Generate Code';
+    }
+
+    function copyCode(){
+        const output=document.getElementById('codeOutput');
+        const codeEl=output.querySelector('code');
+        const text=codeEl ? codeEl.innerText : output.innerText;
+        navigator.clipboard.writeText(text).then(()=>showToast('✅ Code copied!','success'));
+    }
+
+    // ── IMAGE GENERATION ──
+    function setPrompt(text){ document.getElementById('imgPrompt').value=text; }
+
+    async function generateImage(){
+        const prompt=document.getElementById('imgPrompt').value.trim();
+        if(!prompt){ showToast('Prompt likhna zaroori hai!','error'); return; }
+        const genBtn=document.getElementById('genBtn');
+        const loading=document.getElementById('imgLoading');
+        const result=document.getElementById('imgResult');
+        genBtn.disabled=true; loading.classList.add('show'); result.classList.remove('show');
+        try{
+            const res=await fetch('/generate_image',{
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({prompt})
+            });
+            const data=await res.json();
+            loading.classList.remove('show');
+            if(data.success){
+                const src=`data:image/png;base64,${data.image}`;
+                document.getElementById('generatedImg').src=src;
+                document.getElementById('downloadBtn').href=src;
+                result.classList.add('show');
+                showToast('✅ Image generated!','success');
+            } else { showToast('⚠️ '+(data.error||'Failed'),'error'); }
+        }catch(e){ loading.classList.remove('show'); showToast('⚠️ Error: '+e.message,'error'); }
+        genBtn.disabled=false;
+    }
+
+    // ── Export PDF ──
+    function exportPDF(){
+        const {jsPDF}=window.jspdf;
+        const doc=new jsPDF();
+        const msgs=chatEl.querySelectorAll('.message');
+        if(!msgs.length){ showToast('No messages','error'); return; }
+        doc.setFont('helvetica','bold'); doc.setFontSize(16);
+        doc.text('NexusAI — Chat Export',20,20);
+        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(100);
+        doc.text(`Exported: ${new Date().toLocaleString()}`,20,28);
+        doc.line(20,32,190,32);
+        let y=40;
+        msgs.forEach(m=>{
+            const isUser=m.classList.contains('user');
+            const bubble=m.querySelector('.bubble');
+            if(!bubble) return;
+            const text=bubble.innerText.trim();
+            if(!text) return;
+            doc.setFont('helvetica','bold'); doc.setFontSize(10);
+            doc.setTextColor(isUser?99:56,isUser?120:189,isUser?255:248);
+            doc.text(isUser?'You:':'NexusAI:',20,y); y+=6;
+            doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+            const lines=doc.splitTextToSize(text,160);
+            if(y+lines.length*5>280){ doc.addPage(); y=20; }
+            doc.text(lines,20,y); y+=lines.length*5+8;
+        });
+        doc.save(`NexusAI_Chat_${Date.now()}.pdf`);
+        showToast('✅ PDF exported!','success');
+    }
+
+    function copyText(btn,text){
+        navigator.clipboard.writeText(text).then(()=>{ btn.textContent='✅'; setTimeout(()=>btn.textContent='📋 Copy',2000); });
+    }
+
+    function showToast(msg,type='success'){
+        document.querySelectorAll('.toast').forEach(t=>t.remove());
+        const t=document.createElement('div');
+        t.className=`toast ${type}`; t.textContent=msg;
+        document.body.appendChild(t); setTimeout(()=>t.remove(),3500);
+    }
+
+    function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\n/g,' '); }
+</script>
+</body>
+</html>
