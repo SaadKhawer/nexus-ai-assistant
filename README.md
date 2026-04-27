@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # nexus-ai-assistant
 Nexus AI is an intelligent platform designed to provide smart AI-powered solutions, automation, and user-friendly interactions through modern technologies.
 =======
@@ -149,5 +149,4 @@ This project is licensed for educational and personal use.
 
 ## 💡 Author
 
-Built with passion by a Computer Science student
->>>>>>> 18b49734605f5b2514c92b755aeeff9596abd51c
+Muhammad Saad
